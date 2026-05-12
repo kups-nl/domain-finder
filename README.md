@@ -10,7 +10,12 @@ Works inside Claude Code as a skill, or standalone as a Node CLI.
 npx skills add kups-nl/domain-finder
 ```
 
-This drops the skill into `~/.claude/skills/domain-finder/`. Claude Code auto-discovers it.
+The interactive installer asks for a **scope** (Project or User) and which **agents** to install for. Files land in `<scope>/.agents/skills/domain-finder/` — the canonical universal path that skill-aware agents read from (Claude Code, Cursor, Codex, Amp, Cline, OpenCode, Warp, +others).
+
+| Scope     | Install path                                | When to pick                              |
+|-----------|---------------------------------------------|-------------------------------------------|
+| **User**  | `~/.agents/skills/domain-finder/`           | Always available, in every project        |
+| **Project** | `<your-project>/.agents/skills/domain-finder/` | Scoped to one codebase                 |
 
 ## One-time setup
 
@@ -40,7 +45,8 @@ FASTLY_KEY=<your-token>
 ### 3. Verify
 
 ```bash
-echo "google.com" | node ~/.claude/skills/domain-finder/check.mjs
+SCRIPT=$(ls ~/.agents/skills/domain-finder/scripts/check.mjs ./.agents/skills/domain-finder/scripts/check.mjs 2>/dev/null | head -1)
+echo "google.com" | node "$SCRIPT"
 ```
 
 Expected:
@@ -64,28 +70,28 @@ The skill activates automatically when Claude sees you asking for a brand/domain
 - "what should I call this?"
 - "rebrand from X to something else"
 
-Claude then runs a brief discovery (audience, vibe, constraints), brainstorms 30–80 candidates, runs them through `check.mjs`, and presents grouped results with aftermarket pricing.
+Claude then runs a brief discovery (audience, vibe, constraints), brainstorms 30–80 candidates, runs them through `scripts/check.mjs`, and presents grouped results with aftermarket pricing.
 
 ## Direct CLI use (without Claude)
 
 ```bash
 # from file
-node check.mjs --file candidates.txt
+node scripts/check.mjs --file candidates.txt
 
 # from stdin
-cat candidates.txt | node check.mjs
+cat candidates.txt | node scripts/check.mjs
 
 # inline
-node check.mjs mascot.com mascot.ai mascot.studio
+node scripts/check.mjs mascot.com mascot.ai mascot.studio
 
 # JSON for scripting / agent parsing
-node check.mjs --file in.txt --json --available-only > free.json
+node scripts/check.mjs --file in.txt --json --available-only > free.json
 ```
 
 ### Example output
 
 ```
-$ echo -e "anthropic.com\nopenai.com\naimascot.com\nfreshlybaked123xyz.com" | node check.mjs
+$ echo -e "anthropic.com\nopenai.com\naimascot.com\nfreshlybaked123xyz.com" | node scripts/check.mjs
 
 Checking 4 domain(s) via Fastly...
 [1/4]    · registered anthropic.com
@@ -129,12 +135,12 @@ Four `category` values:
 ## CLI flag reference
 
 ```
-node check.mjs <domain>...           # check positional args
-node check.mjs --file <path>         # check from file (one per line, # comments OK)
-echo "..." | node check.mjs          # check from stdin
-node check.mjs --json                # JSON output instead of human-readable
-node check.mjs --available-only      # only print free ones
-node check.mjs --delay 400           # ms between calls (default 250)
+node scripts/check.mjs <domain>...           # check positional args
+node scripts/check.mjs --file <path>         # check from file (one per line, # comments OK)
+echo "..." | node scripts/check.mjs          # check from stdin
+node scripts/check.mjs --json                # JSON output instead of human-readable
+node scripts/check.mjs --available-only      # only print free ones
+node scripts/check.mjs --delay 400           # ms between calls (default 250)
 ```
 
 ## Known gotchas
@@ -146,7 +152,7 @@ node check.mjs --delay 400           # ms between calls (default 250)
 
 ## Agent portability
 
-The Claude Code skill workflow uses `AskUserQuestion`, `WebSearch`, and `WebFetch` for the discovery and pre-flight steps — those are Claude-Code-specific. The core `check.mjs` script is plain Node ESM with no dependencies, so it works in any agent harness that can shell out, or as a regular CLI for humans.
+The Claude Code skill workflow uses `AskUserQuestion`, `WebSearch`, and `WebFetch` for the discovery and pre-flight steps — those are Claude-Code-specific. The core `scripts/check.mjs` script is plain Node ESM with no dependencies, so it works in any agent harness that can shell out, or as a regular CLI for humans.
 
 ## License
 

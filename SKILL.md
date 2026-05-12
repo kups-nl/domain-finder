@@ -1,27 +1,39 @@
 ---
 name: domain-finder
-description: Verify domain availability in real time via Fastly's Domain Research API across every TLD — and surface aftermarket prices when a domain is squatter-held. Triggers on any brand-name, domain, URL, "is X.com taken," rebrand, or naming question. Never claim a domain is available without running the verified check — that's the moat.
+description: Verify domain availability in real time via Fastly's Domain Research API across every TLD — and surface aftermarket prices when a domain is squatter-held. Triggers on any brand-name, domain, URL, "is X.com taken," rebrand, or naming question. Never claim a domain is available without running the verified check first.
+license: MIT
+metadata:
+  author: kups-nl
+  version: '1.0.0'
 ---
 
 # Domain Finder
 
-You help the user find a brand/domain name that is **actually available right now**, not hallucinated. The Fastly Domain Research API in `check.mjs` is the verified source of truth. It also returns aftermarket pricing when a domain is held by a squatter (HugeDomains, Sedo, etc.), which means you can give the user both a "free to register" list *and* a "for sale at $X" list — that's a unique capability versus other AI naming tools.
+You help the user find a brand/domain name that is **actually available right now**, not hallucinated. The Fastly Domain Research API in `scripts/check.mjs` is the verified source of truth. It also returns aftermarket pricing when a domain is held by a squatter (HugeDomains, Sedo, etc.), so you can give the user both a "free to register" list *and* a "for sale at $X" list — a unique capability versus other AI naming tools.
 
-## Path to the script
+## When to Apply
 
-The skill installer drops `check.mjs` next to this `SKILL.md`. The default install location is `~/.claude/skills/domain-finder/check.mjs`. If that path isn't there (project-local install), run `find ~/.claude . -name check.mjs -path '*domain-finder*' 2>/dev/null | head -1` once to locate it.
+Invoke this skill when:
 
-## Setup check (run once per fresh user)
+- The user asks for a brand name, domain name, or URL for a project ("find me a domain for X")
+- The user wants to verify a specific domain ("is foo.com available?", "is X.com taken?")
+- The user is rebranding, renaming, or starting a new product
+- The user mentions naming, branding, or "what should I call this"
+- The user asks for variants across TLDs (`.ai`, `.studio`, `.app`, `.com`, etc.)
+- The user asks about aftermarket pricing or whether a squatter holds a domain
 
-If `FASTLY_KEY` is missing the script fails with a clear error pointing the user to the setup steps. Tell them:
+## Setup
 
-```bash
-export FASTLY_KEY=<their-fastly-api-key>     # in ~/.zshrc for persistence
-```
+### Script path
 
-Get one at: <https://manage.fastly.com/account/personal/tokens> (free tier works).
+- User-scope install (default for `npx skills add`): `~/.agents/skills/domain-finder/scripts/check.mjs`
+- Project-scope install: `./.agents/skills/domain-finder/scripts/check.mjs`
 
-Or leave it in `.env.local` / `.env` in the working directory (or any parent dir) — the script auto-loads.
+Examples below use the user-scope path — substitute if the user is project-scoped.
+
+### FASTLY_KEY
+
+If the env var isn't set, the script prints full setup instructions in its error message. Relay them. Offer to write `FASTLY_KEY=<token>` to `.env.local` in the user's working directory (the script walks parent dirs), or to `~/.zshrc` for persistence. Free token: <https://manage.fastly.com/account/personal/tokens>.
 
 ## Workflow
 
@@ -56,7 +68,7 @@ Pick TLDs to test based on the brief:
 Write candidates to a temp file (one per line, `#` comments allowed), then:
 
 ```bash
-node ~/.claude/skills/domain-finder/check.mjs --file /tmp/candidates.txt --json
+node ~/.agents/skills/domain-finder/scripts/check.mjs --file /tmp/candidates.txt --json
 ```
 
 Or pipe directly:
@@ -64,7 +76,7 @@ Or pipe directly:
 ```bash
 echo "foo.com
 bar.ai
-baz.studio" | node ~/.claude/skills/domain-finder/check.mjs --json
+baz.studio" | node ~/.agents/skills/domain-finder/scripts/check.mjs --json
 ```
 
 Parse the JSON, group by `category`:
@@ -130,16 +142,12 @@ Skip pre-flight on early candidates — it's wasted effort until the user has na
 ## Script flag reference
 
 ```
-node check.mjs <domain>...                  # check positional args
-node check.mjs --file <path>                # check from file
-echo "..." | node check.mjs                 # check from stdin
-node check.mjs --json                       # JSON output instead of human
-node check.mjs --available-only             # only print free
-node check.mjs --delay 400                  # ms between calls (default 250)
+node scripts/check.mjs <domain>...                  # check positional args
+node scripts/check.mjs --file <path>                # check from file
+echo "..." | node scripts/check.mjs                 # check from stdin
+node scripts/check.mjs --json                       # JSON output instead of human
+node scripts/check.mjs --available-only             # only print free
+node scripts/check.mjs --delay 400                  # ms between calls (default 250)
 ```
 
-Rate-limit aware: 5× retry on 429 honoring the `retry-after` header. Default 250 ms pacing handles batches of 100+ cleanly.
-
-## Note on agent portability
-
-`AskUserQuestion`, `WebSearch`, and `WebFetch` are Claude-Code-specific tools used in the workflow above. The core `check.mjs` script is a plain Node ESM CLI — it works in any agent harness (or any shell) that can shell out. Drop the Claude-specific UX steps if you're wiring this into a different agent.
+Rate-limit aware: 5× retry on 429 honoring the `retry-after` header. 15 s per-request timeout via `AbortSignal`. Default 250 ms pacing handles batches of 100+ cleanly.
