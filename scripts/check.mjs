@@ -180,6 +180,7 @@ async function checkOne(domain) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const res = await fetch(url, {
       headers: { "Fastly-Key": FASTLY_KEY, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
     });
     if (res.status === 429) {
       const retryAfter = Number(res.headers.get("retry-after") || "2") * 1000;
